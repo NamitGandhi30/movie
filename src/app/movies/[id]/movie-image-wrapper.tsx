@@ -4,42 +4,49 @@ import { useState } from "react";
 import Image from "next/image";
 import { getImageUrl } from "@/lib/tmdb";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { Movie } from "@/lib/tmdb";
 
 interface MovieImageWrapperProps {
-  movie: Movie;
-  imagePath: string | null;
-  imageSize?: string;
+  path: string | null;
+  title: string;
+  priority?: boolean;
+  size?: string;
 }
 
-export function MovieImageWrapper({ movie, imagePath, imageSize = "w500" }: MovieImageWrapperProps) {
-  const [imageError, setImageError] = useState(false);
-  const [imageLoaded, setImageLoaded] = useState(false);
-
+export function MovieImageWrapper({ 
+  path, 
+  title, 
+  priority = false,
+  size = "w500"
+}: MovieImageWrapperProps) {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  
+  const imageUrl = getImageUrl(path, size);
+  
   return (
-    <div className="aspect-[2/3] relative rounded-lg overflow-hidden">
-      {!imageLoaded && !imageError && (
+    <div className="relative aspect-[2/3] w-full overflow-hidden rounded-lg bg-muted">
+      {loading && !error && (
         <Skeleton className="absolute inset-0" />
       )}
       
-      {!imageError ? (
-        <Image
-          src={getImageUrl(imagePath, imageSize)}
-          alt={movie.title}
-          fill
-          className="object-cover"
-          priority
-          onError={() => setImageError(true)}
-          onLoad={() => setImageLoaded(true)}
-          style={{ 
-            opacity: imageLoaded ? 1 : 0
-          }}
-          unoptimized={true}
-        />
-      ) : (
-        <div className="w-full h-full flex items-center justify-center bg-muted">
-          <span className="text-center px-4 text-muted-foreground">{movie.title}</span>
+      {error ? (
+        <div className="absolute inset-0 flex items-center justify-center bg-muted text-muted-foreground">
+          <span className="text-sm">Image not available</span>
         </div>
+      ) : (
+        <Image
+          src={imageUrl}
+          alt={title}
+          fill
+          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+          className={`object-cover transition-opacity duration-300 ${loading ? 'opacity-0' : 'opacity-100'}`}
+          priority={priority}
+          onLoad={() => setLoading(false)}
+          onError={() => {
+            setLoading(false);
+            setError(true);
+          }}
+        />
       )}
     </div>
   );

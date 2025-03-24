@@ -612,3 +612,18 @@ export async function getSimilarMovies(id: number, page = 1) {
     };
   }
 }
+
+/**
+ * Get a genre by ID
+ * @param id The ID of the genre to get
+ * @returns The genre or null if not found
+ */
+export async function getGenreById(id: number): Promise<Genre | null> {
+  try {
+    const { genres } = await getGenres();
+    return genres.find(genre => genre.id === id) || null;
+  } catch (error) {
+    console.error(`Error getting genre with ID ${id}:`, error);
+    return null;
+  }
+}

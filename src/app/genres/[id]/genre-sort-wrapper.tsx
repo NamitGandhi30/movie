@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { getMoviesByGenre } from "@/lib/tmdb";
 import { MovieCard } from "@/components/movie-card";
 import { Button } from "@/components/ui/button";
-import { SortSelector, SORT_OPTIONS } from "@/components/sort-selector";
+import { SortSelector } from "@/components/sort-selector";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MovieGridSkeleton } from "@/components/ui/movie-grid-skeleton";
 import Link from "next/link";
@@ -13,14 +13,16 @@ import type { Movie } from "@/lib/tmdb";
 
 interface GenreSortWrapperProps {
   genreId: number;
+  genreName: string;
   initialPage: number;
   initialSort: string;
 }
 
 export function GenreSortWrapper({ 
   genreId, 
-  initialPage, 
-  initialSort 
+  genreName = "Genre",
+  initialPage = 1, 
+  initialSort = "popularity.desc" 
 }: GenreSortWrapperProps) {
   const router = useRouter();
   const [movies, setMovies] = useState<Movie[]>([]);
@@ -29,6 +31,15 @@ export function GenreSortWrapper({
   const [sortBy, setSortBy] = useState(initialSort);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+
+  const SORT_OPTIONS = [
+    { label: "Popularity", value: "popularity.desc" },
+    { label: "Rating", value: "vote_average.desc" },
+    { label: "Release Date (New)", value: "release_date.desc" },
+    { label: "Release Date (Old)", value: "release_date.asc" },
+    { label: "Title A-Z", value: "original_title.asc" },
+    { label: "Title Z-A", value: "original_title.desc" },
+  ];
 
   useEffect(() => {
     const fetchMovies = async () => {
@@ -72,9 +83,22 @@ export function GenreSortWrapper({
   const currentSortOption = SORT_OPTIONS.find(option => option.value === sortBy);
 
   return (
-    <div>
-      <div className="flex justify-end mb-6">
-        <SortSelector value={sortBy} onChange={handleSortChange} />
+    <div className="container px-4 py-8">
+      <h1 className="text-2xl md:text-3xl font-bold mb-6">{genreName} Movies</h1>
+      
+      <div className="flex justify-between items-center mb-6">
+        <div className="flex items-center gap-2">
+          <Link href="/genres">
+            <Button variant="outline" size="sm">
+              ← All Genres
+            </Button>
+          </Link>
+        </div>
+        <SortSelector 
+          value={sortBy} 
+          onChange={handleSortChange} 
+          options={SORT_OPTIONS}
+        />
       </div>
       
       {loading && <MovieGridSkeleton count={20} />}
@@ -97,7 +121,7 @@ export function GenreSortWrapper({
           )}
           
           {movies.length > 0 ? (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
               {movies.map((movie) => (
                 <MovieCard key={movie.id} movie={movie} />
               ))}

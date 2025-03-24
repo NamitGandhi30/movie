@@ -11,8 +11,7 @@ export const authOptions: NextAuthOptions = {
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        // This is a simple demo authentication
-        // In a real app, you would check against a database
+
         if (
           credentials?.email === "user@example.com" &&
           credentials?.password === "password"

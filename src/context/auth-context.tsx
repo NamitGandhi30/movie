@@ -63,11 +63,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       setIsLoading(true);
       
-      // For demo purposes, we'll simulate an API call
-      // In a real app, you would make a request to your authentication API
-      
-      // Simple validation for demo
-      if (!email || !password) {
+          
+            if (!email || !password) {
         throw new Error("Email and password are required");
       }
       
@@ -98,10 +95,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       setIsLoading(true);
       
-      // For demo purposes, we'll simulate an API call
-      // In a real app, you would make a request to your registration API
-      
-      // Simple validation for demo
       if (!name || !email || !password) {
         throw new Error("Name, email and password are required");
       }

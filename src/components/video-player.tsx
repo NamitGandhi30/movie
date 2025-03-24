@@ -24,18 +24,18 @@ export function VideoPlayer({
     <>
       <Button 
         variant={variant} 
-        className="flex items-center gap-2 font-medium"
+        className="flex items-center gap-2 font-medium transition-all duration-300 hover:scale-105 shadow-md hover:shadow-lg"
         onClick={() => setIsOpen(true)}
       >
-        <PlayCircleIcon className="h-4 w-4" />
+        <PlayCircleIcon className="h-4 w-4 animate-pulse-soft" />
         {btnText}
       </Button>
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="sm:max-w-[800px] max-w-[95vw] max-h-[90vh] p-0 border-none bg-transparent shadow-2xl">
+        <DialogContent className="sm:max-w-[800px] max-w-[95vw] max-h-[90vh] p-0 border-none bg-transparent shadow-2xl animate-scale">
           <div className="relative pt-[56.25%] w-full rounded-lg overflow-hidden">
             <button 
-              className="absolute top-3 right-3 z-10 rounded-full bg-black/70 p-2 hover:bg-black/90 transition-colors"
+              className="absolute top-3 right-3 z-10 rounded-full bg-black/70 p-2 hover:bg-black/90 transition-colors hover:scale-110 transition-all duration-300"
               onClick={() => setIsOpen(false)}
             >
               <XIcon className="h-5 w-5 text-white" />

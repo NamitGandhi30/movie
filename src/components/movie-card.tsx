@@ -23,7 +23,7 @@ export function MovieCard({ movie }: MovieCardProps) {
   }, []);
 
   return (
-    <Card className="overflow-hidden transition-all duration-300 hover:shadow-xl dark:hover:shadow-indigo-500/10 group h-full border-0 rounded-xl bg-gradient-to-t from-neutral-100 to-white dark:from-neutral-900 dark:to-neutral-800 relative">
+    <Card className="overflow-hidden transition-all duration-300 hover:shadow-xl dark:hover:shadow-primary/20 hover:translate-y-[-8px] group h-full border-0 rounded-xl bg-gradient-to-t from-neutral-100 to-white dark:from-neutral-900 dark:to-neutral-800 relative">
       {mounted && (
         <div className="absolute top-2 right-2 z-10" onClick={(e) => e.stopPropagation()}>
           <FavoriteButton movie={movie} variant="icon" size="sm" />
@@ -32,7 +32,7 @@ export function MovieCard({ movie }: MovieCardProps) {
       <Link href={`/movies/${movie.id}`} aria-label={`View details for ${movie.title}`} className="block h-full">
         <div className="aspect-[2/3] relative overflow-hidden w-full rounded-t-lg">
           {!imageLoaded && !imageError && (
-            <Skeleton className="absolute inset-0" />
+            <Skeleton className="absolute inset-0 animate-pulse-soft" />
           )}
           
           <Image
@@ -40,13 +40,14 @@ export function MovieCard({ movie }: MovieCardProps) {
             alt={movie.title}
             fill
             sizes="(max-width: 768px) 160px, (max-width: 1200px) 180px, 200px"
-            className="object-cover transition-transform duration-300 group-hover:scale-105"
+            className="object-cover transition-transform duration-500 group-hover:scale-110"
             priority={false}
             onError={() => setImageError(true)}
             onLoad={() => setImageLoaded(true)}
             style={{ 
               display: imageError ? 'none' : 'block',
-              opacity: imageLoaded ? 1 : 0 
+              opacity: imageLoaded ? 1 : 0,
+              transition: 'opacity 0.3s ease-in-out' 
             }}
           />
           
@@ -60,13 +61,13 @@ export function MovieCard({ movie }: MovieCardProps) {
             <>
               <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
               <div className="absolute top-2 left-2 bg-black/60 text-white px-2 py-1 rounded-full text-xs font-bold">
-                ★ {movie.vote_average.toFixed(1)}
+                <span className="inline-block animate-pulse-soft">★</span> {movie.vote_average.toFixed(1)}
               </div>
             </>
           )}
         </div>
         <CardContent className="p-3 h-[70px] flex flex-col justify-between">
-          <h3 className="font-bold line-clamp-1 text-sm sm:text-base">{movie.title}</h3>
+          <h3 className="font-bold line-clamp-1 text-sm sm:text-base group-hover:text-primary transition-colors duration-300">{movie.title}</h3>
           <div className="flex items-center mt-1">
             <span className="text-xs sm:text-sm text-muted-foreground">
               {movie.release_date?.split("-")[0] || "N/A"}

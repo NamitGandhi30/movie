@@ -53,13 +53,13 @@ export function SimilarMovies({ movies, title = "Similar Movies", className }: S
 
   return (
     <div className={`space-y-4 ${className}`}>
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between animate-fade-up">
         <h2 className="text-2xl font-bold">{title}</h2>
         <div className="flex gap-2">
           <Button
             variant="outline"
             size="icon"
-            className="rounded-full"
+            className="rounded-full transition-opacity-300 hover:scale-105"
             onClick={() => scroll("left")}
             disabled={!canScrollLeft}
           >
@@ -69,7 +69,7 @@ export function SimilarMovies({ movies, title = "Similar Movies", className }: S
           <Button
             variant="outline"
             size="icon"
-            className="rounded-full"
+            className="rounded-full transition-opacity-300 hover:scale-105"
             onClick={() => scroll("right")}
             disabled={!canScrollRight}
           >
@@ -80,13 +80,16 @@ export function SimilarMovies({ movies, title = "Similar Movies", className }: S
       </div>
 
       <div 
-        className="relative overflow-x-auto pb-4 scrollbar-hide" 
+        className="relative overflow-x-auto pb-4 scrollbar-hide animate-fade-up animate-stagger-1" 
         ref={containerRef}
         onScroll={checkScrollable}
       >
         <div className="flex gap-6 min-w-max">
-          {movies.map((movie) => (
-            <div key={movie.id} className="w-[180px] flex-shrink-0">
+          {movies.map((movie, index) => (
+            <div 
+              key={movie.id} 
+              className={`w-[180px] flex-shrink-0 animate-fade-up animate-stagger-${(index % 5) + 1} hover-lift`}
+            >
               <MovieCard movie={movie} />
             </div>
           ))}

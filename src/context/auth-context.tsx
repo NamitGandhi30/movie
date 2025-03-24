@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { useRouter } from "next/navigation";
+import { shouldSkipAuthInBuild, mockUser } from "@/lib/deployment-config";
 
 type User = {
   id: string;
@@ -18,14 +19,29 @@ interface AuthContextType {
   requireAuth: (redirectTo?: string) => Promise<boolean>;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+// Create a default context value for static rendering
+const defaultContextValue: AuthContextType = {
+  user: mockUser,
+  isLoading: false,
+  login: async () => false,
+  register: async () => false,
+  logout: () => {},
+  requireAuth: async () => true,
+};
+
+const AuthContext = createContext<AuthContextType | undefined>(
+  shouldSkipAuthInBuild ? defaultContextValue : undefined
+);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [user, setUser] = useState<User | null>(mockUser);
+  const [isLoading, setIsLoading] = useState(!shouldSkipAuthInBuild);
   const router = useRouter();
 
+  // Skip auth initialization during static build
   useEffect(() => {
+    if (shouldSkipAuthInBuild) return;
+    
     // Check if user is stored in localStorage on initial load
     const checkAuth = () => {
       const storedUser = localStorage.getItem("user");
@@ -143,8 +159,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return true;
   };
 
+  // Use static mock values during build
+  const contextValue: AuthContextType = shouldSkipAuthInBuild 
+    ? defaultContextValue
+    : {
+        user,
+        isLoading,
+        login,
+        register,
+        logout,
+        requireAuth,
+      };
+
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, register, logout, requireAuth }}>
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );
@@ -156,4 +184,4 @@ export function useAuth() {
     throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
-} 
+}

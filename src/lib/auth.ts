@@ -1,24 +1,30 @@
+// Authentication utilities
 import { NextAuthOptions } from "next-auth";
-import { JWT } from "next-auth/jwt";
-import GoogleProvider from "next-auth/providers/google";
-
-// Extend the built-in session types
-declare module "next-auth" {
-  interface Session {
-    user: {
-      id: string;
-      name?: string | null;
-      email?: string | null;
-      image?: string | null;
-    }
-  }
-}
+import CredentialsProvider from "next-auth/providers/credentials";
 
 export const authOptions: NextAuthOptions = {
   providers: [
-    GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID || "",
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
+    CredentialsProvider({
+      name: "Credentials",
+      credentials: {
+        email: { label: "Email", type: "email" },
+        password: { label: "Password", type: "password" },
+      },
+      async authorize(credentials) {
+        // This is a simple demo authentication
+        // In a real app, you would check against a database
+        if (
+          credentials?.email === "user@example.com" &&
+          credentials?.password === "password"
+        ) {
+          return {
+            id: "1",
+            name: "Demo User",
+            email: "user@example.com",
+          };
+        }
+        return null;
+      },
     }),
   ],
   pages: {
@@ -30,7 +36,8 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async session({ session, token }) {
       if (token && session.user) {
-        session.user.id = token.sub as string;
+        // Use type assertion to extend the session.user type
+        (session.user as any).id = token.sub as string;
       }
       return session;
     },

@@ -37,11 +37,6 @@ export function ScrollableMovieList({
     };
   }, []);
 
-  // If loading or no movies, show skeleton
-  if (isLoading || !movies || movies.length === 0) {
-    return <ScrollableListSkeleton showTitle={true} count={6} />;
-  }
-
   // Check if we're at the edges to show/hide arrows
   const checkScrollPosition = useCallback(() => {
     if (!scrollContainerRef.current) return;
@@ -137,6 +132,11 @@ export function ScrollableMovieList({
     scrollContainerRef.current.scrollLeft = scrollLeft - walk;
   };
 
+  // If loading or no movies, show skeleton
+  if (isLoading || !movies || movies.length === 0) {
+    return <ScrollableListSkeleton showTitle={true} count={6} />;
+  }
+
   return (
     <section className="relative py-4 mb-6" aria-labelledby={`${id}-heading`}>
       <div className="flex items-center justify-between mb-6 px-1">
@@ -198,4 +198,4 @@ export function ScrollableMovieList({
       </div>
     </section>
   );
-} 
+}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { getMovieVideos } from "@/lib/tmdb";
 import { Button } from "@/components/ui/button";
 import { PlayIcon, XIcon } from "lucide-react";
@@ -23,38 +23,45 @@ interface MovieTrailerProps {
   movieId: number;
 }
 
-export async function MovieTrailer({ movieId }: MovieTrailerProps) {
+export function MovieTrailer({ movieId }: MovieTrailerProps) {
   // Use React's useState for client-side state
   const [isOpen, setIsOpen] = useState(false);
-  
-  // Fetch videos data
-  const data = await getMovieVideos(movieId);
-  
-  // Find official trailer first
-  const officialTrailer = data.results?.find(
-    (video: Video) => 
-      video.type === "Trailer" && 
-      video.site === "YouTube" && 
-      video.official
-  );
-  
-  // If no official trailer, find any trailer
-  const anyTrailer = data.results?.find(
-    (video: Video) => 
-      video.type === "Trailer" && 
-      video.site === "YouTube"
-  );
-  
-  // If no trailer, find a teaser
-  const teaser = data.results?.find(
-    (video: Video) => 
-      video.type === "Teaser" && 
-      video.site === "YouTube"
-  );
-  
-  // Use the first available video
-  const video = officialTrailer || anyTrailer || teaser;
-  
+  const [video, setVideo] = useState<Video | null>(null);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      // Fetch videos data
+      const data = await getMovieVideos(movieId);
+      
+      // Find official trailer first
+      const officialTrailer = data.results?.find(
+        (video: Video) => 
+          video.type === "Trailer" && 
+          video.site === "YouTube" && 
+          video.official
+      );
+      
+      // If no official trailer, find any trailer
+      const anyTrailer = data.results?.find(
+        (video: Video) => 
+          video.type === "Trailer" && 
+          video.site === "YouTube"
+      );
+      
+      // If no trailer, find a teaser
+      const teaser = data.results?.find(
+        (video: Video) => 
+          video.type === "Teaser" && 
+          video.site === "YouTube"
+      );
+      
+      // Use the first available video
+      setVideo(officialTrailer || anyTrailer || teaser);
+    };
+
+    fetchData();
+  }, [movieId]);
+
   if (!video) {
     return null;
   }
@@ -90,4 +97,4 @@ export async function MovieTrailer({ movieId }: MovieTrailerProps) {
       </DialogContent>
     </Dialog>
   );
-} 
+}

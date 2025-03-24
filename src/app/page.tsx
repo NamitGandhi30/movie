@@ -1,4 +1,4 @@
-import { getPopularMovies, getTopRatedMovies } from "@/lib/tmdb";
+import { getPopularMovies, getTopRatedMovies, getIndianMovies } from "@/lib/tmdb";
 import { ScrollableMovieList } from "@/components/scrollable-movie-list";
 import { getImageUrl } from "@/lib/tmdb";
 import Image from "next/image";
@@ -24,10 +24,12 @@ export default async function Home() {
         <HeroSection />
       </Suspense>
 
-      <div className="container px-4 sm:px-6 space-y-8">
+      <div className="container px-4 sm:px-6 space-y-12">
         <Suspense fallback={<ScrollableListSkeleton />}>
           <PopularMoviesSection />
         </Suspense>
+
+    
 
         <Suspense fallback={<ScrollableListSkeleton />}>
           <TopRatedMoviesSection />
@@ -48,6 +50,8 @@ async function PopularMoviesSection() {
     />
   );
 }
+
+
 
 async function TopRatedMoviesSection() {
   const topRatedMovies = await getTopRatedMovies();

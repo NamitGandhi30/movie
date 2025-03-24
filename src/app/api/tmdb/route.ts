@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { MOCK_GENRES, MOCK_MOVIES, MOCK_MOVIE_DETAILS, mockMoviesResponse } from '@/lib/tmdb';
+import { MOCK_GENRES, MOCK_MOVIE_DETAILS, mockMoviesResponse } from '@/lib/tmdb';
 
 /**
  * TMDB API proxy route handler
@@ -95,4 +95,4 @@ export async function GET(request: NextRequest) {
       { status: 200 }
     );
   }
-} 
+}

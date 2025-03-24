@@ -6,7 +6,6 @@ import { getMoviesByGenre } from "@/lib/tmdb";
 import { MovieCard } from "@/components/movie-card";
 import { Button } from "@/components/ui/button";
 import { SortSelector } from "@/components/sort-selector";
-import { Skeleton } from "@/components/ui/skeleton";
 import { MovieGridSkeleton } from "@/components/ui/movie-grid-skeleton";
 import Link from "next/link";
 import type { Movie } from "@/lib/tmdb";
@@ -212,4 +211,4 @@ export function GenreSortWrapper({
       )}
     </div>
   );
-} 
+}

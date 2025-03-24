@@ -6,6 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MovieGridSkeleton } from "@/components/ui/movie-grid-skeleton";
 import { ArrowLeftIcon } from "lucide-react";
+import { GenreSortWrapper } from "./genre-sort-wrapper";
+import { notFound } from "next/navigation";
+
+// Set revalidation for ISR (6 hours)
+export const revalidate = 21600;
 
 interface GenrePageProps {
   params: {
@@ -18,50 +23,81 @@ interface GenrePageProps {
 }
 
 export async function generateMetadata({ params }: GenrePageProps) {
-  const genreId = parseInt(params.id, 10);
-  const { genres } = await getGenres();
-  const genre = genres.find(g => g.id === genreId);
-  
-  return {
-    title: genre ? `${genre.name} Movies | Movie Explorer` : "Genre Movies | Movie Explorer",
-    description: genre ? `Browse the best ${genre.name} movies on Movie Explorer` : "Browse movies by genre on Movie Explorer"
-  };
+  try {
+    const genreId = parseInt(params.id, 10);
+    const { genres } = await getGenres();
+    const genre = genres.find(g => g.id === genreId);
+    
+    if (!genre) {
+      return {
+        title: "Genre Not Found | Movie Explorer",
+        description: "Sorry, we couldn't find this genre."
+      };
+    }
+    
+    return {
+      title: `${genre.name} Movies | Movie Explorer`,
+      description: `Browse the best ${genre.name} movies on Movie Explorer`
+    };
+  } catch (error) {
+    console.error("Error generating metadata for genre page:", error);
+    return {
+      title: "Movies by Genre | Movie Explorer",
+      description: "Browse movies by genre on Movie Explorer"
+    };
+  }
 }
 
 export default async function GenrePage({ params, searchParams }: GenrePageProps) {
-  const genreId = parseInt(params.id, 10);
-  const page = searchParams.page ? parseInt(searchParams.page, 10) : 1;
-  const sort = searchParams.sort || "popularity.desc";
-  
-  return (
-    <div className="container py-8">
-      <Link href="/genres" className="inline-flex items-center text-muted-foreground hover:text-foreground mb-6">
-        <ArrowLeftIcon className="mr-2 h-4 w-4" />
-        Back to genres
-      </Link>
-      
-      <Suspense fallback={<GenreDetailsSkeleton />}>
-        <GenreDetails genreId={genreId} />
-      </Suspense>
-      
-      <Suspense fallback={<MovieGridSkeleton count={20} />}>
-        <MovieGrid genreId={genreId} page={page} sort={sort} />
-      </Suspense>
-    </div>
-  );
+  try {
+    const genreId = parseInt(params.id, 10);
+    const page = searchParams.page ? parseInt(searchParams.page, 10) : 1;
+    const sort = searchParams.sort || "popularity.desc";
+    
+    // Verify this genre exists
+    const { genres } = await getGenres();
+    const genre = genres.find(g => g.id === genreId);
+    
+    if (!genre) {
+      notFound();
+    }
+    
+    return (
+      <div className="container py-8">
+        <Link href="/genres" className="inline-flex items-center text-muted-foreground hover:text-foreground mb-6">
+          <ArrowLeftIcon className="mr-2 h-4 w-4" />
+          Back to genres
+        </Link>
+        
+        <Suspense fallback={<GenreDetailsSkeleton />}>
+          <GenreDetails genreId={genreId} />
+        </Suspense>
+        
+        <GenreSortWrapper genreId={genreId} initialPage={page} initialSort={sort} />
+      </div>
+    );
+  } catch (error) {
+    console.error("Error rendering genre page:", error);
+    notFound();
+  }
 }
 
 async function GenreDetails({ genreId }: { genreId: number }) {
-  const { genres } = await getGenres();
-  const genre = genres.find(g => g.id === genreId);
-  
-  if (!genre) {
-    return <h1 className="text-3xl font-bold mb-8">Genre not found</h1>;
+  try {
+    const { genres } = await getGenres();
+    const genre = genres.find(g => g.id === genreId);
+    
+    if (!genre) {
+      return <h1 className="text-3xl font-bold mb-8">Genre not found</h1>;
+    }
+    
+    return (
+      <h1 className="text-3xl font-bold mb-8">{genre.name} Movies</h1>
+    );
+  } catch (error) {
+    console.error("Error loading genre details:", error);
+    return <h1 className="text-3xl font-bold mb-8">Movie Genre</h1>;
   }
-  
-  return (
-    <h1 className="text-3xl font-bold mb-8">{genre.name} Movies</h1>
-  );
 }
 
 async function MovieGrid({ 

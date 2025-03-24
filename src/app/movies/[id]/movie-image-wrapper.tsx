@@ -34,6 +34,7 @@ export function MovieImageWrapper({ movie, imagePath, imageSize = "w500" }: Movi
           style={{ 
             opacity: imageLoaded ? 1 : 0
           }}
+          unoptimized={true}
         />
       ) : (
         <div className="w-full h-full flex items-center justify-center bg-muted">

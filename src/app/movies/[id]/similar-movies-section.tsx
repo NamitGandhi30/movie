@@ -1,5 +1,7 @@
+"use client";
+
 import { getSimilarMovies } from "@/lib/tmdb";
-import { SimilarMovies } from "@/components/similar-movies";
+import { ScrollableMovieList } from "@/components/scrollable-movie-list";
 
 interface SimilarMoviesSectionProps {
   movieId: number;
@@ -14,9 +16,10 @@ export async function SimilarMoviesSection({ movieId }: SimilarMoviesSectionProp
   
   return (
     <div className="mt-16">
-      <SimilarMovies 
-        movies={data.results} 
+      <ScrollableMovieList
         title="Similar Movies"
+        movies={data.results.slice(0, 12)}
+        id={`similar-movies-${movieId}`}
       />
     </div>
   );

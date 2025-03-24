@@ -214,37 +214,60 @@ const mockMoviesResponse: MoviesResponse = {
  * @param sortBy The sorting method (default: popularity.desc)
  * @returns A Promise resolving to the movie response
  */
-export async function getMoviesByGenre(
-  genreId: number,
-  page: number = 1,
-  sortBy: string = "popularity.desc"
-): Promise<MoviesResponse> {
-  // Check if API key is available
-  if (!process.env.NEXT_PUBLIC_TMDB_API_KEY) {
-    console.warn("TMDB API key not found. Using mock data.");
+export async function getMoviesByGenre(genreId: number, page = 1, sortBy = 'popularity.desc') {
+  const hasApiKey = validateApiKey();
+  
+  if (!hasApiKey) {
+    // Return mock data if no API key
     return mockMoviesResponse;
   }
-
-  try {
-    // Construct API URL with genre filter and sorting
-    const apiUrl = `https://api.themoviedb.org/3/discover/movie?api_key=${
-      process.env.NEXT_PUBLIC_TMDB_API_KEY
-    }&language=en-US&with_genres=${genreId}&page=${page}&sort_by=${sortBy}`;
-
-    const response = await fetch(apiUrl);
-
-    if (!response.ok) {
-      console.error("Failed to fetch movies by genre:", response.statusText);
-      return mockMoviesResponse;
+  
+  const url = `${TMDB_BASE_URL}/discover/movie?api_key=${TMDB_API_KEY}&with_genres=${genreId}&page=${page}&sort_by=${sortBy}`;
+  const options = {
+    method: 'GET',
+    headers: {
+      accept: 'application/json',
+      Authorization: `Bearer ${TMDB_API_KEY}`
     }
+  };
 
-    const data = await response.json();
-    return data;
-  } catch (error) {
-    console.error("Error fetching movies by genre:", error);
-    // Return mock data as fallback
-    return mockMoviesResponse;
+  // Try up to 3 times with increasing backoff
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      console.log(`Fetching movies for genre ${genreId}, attempt ${attempt + 1}`);
+      const response = await fetch(url, options);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`TMDB API error: ${response.status} - ${errorText}`);
+        
+        // If we got a server error, wait before retrying
+        if (response.status >= 500) {
+          await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
+          continue;
+        }
+        
+        // For client errors, return mock data
+        return mockMoviesResponse;
+      }
+      
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error(`Error fetching movies by genre (attempt ${attempt + 1}):`, error);
+      
+      // Wait before retrying (exponential backoff)
+      if (attempt < 2) {
+        const backoffTime = 1000 * Math.pow(2, attempt);
+        console.log(`Retrying in ${backoffTime}ms...`);
+        await new Promise(resolve => setTimeout(resolve, backoffTime));
+      }
+    }
   }
+  
+  // If all attempts failed, return mock data
+  console.log("All attempts to fetch genre movies failed, using mock data");
+  return mockMoviesResponse;
 }
 
 export async function getPopularMovies(page = 1) {
@@ -459,7 +482,10 @@ export async function searchMovies(query: string, page = 1) {
 }
 
 export function getImageUrl(path: string | null, size: string = 'w500') {
-  if (!path) return '/placeholder-image.jpg';
+  if (!path) {
+    // Return a data URI for a simple gray placeholder since the file may not exist
+    return "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='500' height='750' viewBox='0 0 500 750'%3E%3Crect width='100%25' height='100%25' fill='%23333333'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='24' fill='%23ffffff'%3ENo Image%3C/text%3E%3C/svg%3E";
+  }
   return `${TMDB_IMAGE_BASE_URL}/${size}${path}`;
 }
 

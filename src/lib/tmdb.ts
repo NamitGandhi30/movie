@@ -462,3 +462,132 @@ export function getImageUrl(path: string | null, size: string = 'w500') {
   if (!path) return '/placeholder-image.jpg';
   return `${TMDB_IMAGE_BASE_URL}/${size}${path}`;
 }
+
+export async function getMovieVideos(id: number) {
+  const hasApiKey = validateApiKey();
+  
+  if (!hasApiKey) {
+    // Return mock data if no API key
+    return {
+      results: [
+        {
+          id: "mock-video-1",
+          key: "dQw4w9WgXcQ", // Example YouTube video key
+          name: "Mock Trailer",
+          site: "YouTube",
+          type: "Trailer",
+          official: true,
+          published_at: "2023-01-01T00:00:00.000Z"
+        }
+      ]
+    };
+  }
+  
+  const url = `${TMDB_BASE_URL}/movie/${id}/videos?api_key=${TMDB_API_KEY}`;
+  const options = {
+    method: 'GET',
+    headers: {
+      accept: 'application/json',
+      Authorization: `Bearer ${TMDB_API_KEY}`
+    },
+    next: { revalidate: 3600 }
+  };
+
+  try {
+    const response = await fetchWithRetry(url, options);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`TMDB API error: ${response.status} - ${errorText}`);
+      
+      // Return mock video data on error
+      return {
+        results: [
+          {
+            id: "mock-video-1",
+            key: "dQw4w9WgXcQ",
+            name: "Mock Trailer",
+            site: "YouTube",
+            type: "Trailer",
+            official: true,
+            published_at: "2023-01-01T00:00:00.000Z"
+          }
+        ]
+      };
+    }
+    
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error(`Error fetching movie videos for ID ${id}:`, error);
+    
+    // Return mock video data on error
+    return {
+      results: [
+        {
+          id: "mock-video-1",
+          key: "dQw4w9WgXcQ",
+          name: "Mock Trailer",
+          site: "YouTube",
+          type: "Trailer",
+          official: true,
+          published_at: "2023-01-01T00:00:00.000Z"
+        }
+      ]
+    };
+  }
+}
+
+export async function getSimilarMovies(id: number, page = 1) {
+  const hasApiKey = validateApiKey();
+  
+  if (!hasApiKey) {
+    // Return mock data if no API key
+    return {
+      results: MOCK_MOVIES,
+      page: 1,
+      total_pages: 1,
+      total_results: MOCK_MOVIES.length
+    };
+  }
+  
+  const url = `${TMDB_BASE_URL}/movie/${id}/similar?api_key=${TMDB_API_KEY}&page=${page}`;
+  const options = {
+    method: 'GET',
+    headers: {
+      accept: 'application/json',
+      Authorization: `Bearer ${TMDB_API_KEY}`
+    },
+    next: { revalidate: 3600 }
+  };
+
+  try {
+    const response = await fetchWithRetry(url, options);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`TMDB API error: ${response.status} - ${errorText}`);
+      
+      // Return mock data on error
+      return {
+        results: MOCK_MOVIES,
+        page: 1,
+        total_pages: 1,
+        total_results: MOCK_MOVIES.length
+      };
+    }
+    
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error(`Error fetching similar movies for ID ${id}:`, error);
+    
+    // Return mock data on error
+    return {
+      results: MOCK_MOVIES,
+      page: 1,
+      total_pages: 1,
+      total_results: MOCK_MOVIES.length
+    };
+  }
+}

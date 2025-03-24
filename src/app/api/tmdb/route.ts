@@ -1,30 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { MOCK_GENRES, MOCK_MOVIES, MOCK_MOVIE_DETAILS, mockMoviesResponse } from '@/lib/tmdb';
 
-const TMDB_API_KEY = process.env.NEXT_PUBLIC_TMDB_API_KEY || '';
-const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
-const TIMEOUT_MS = 5000; // 5 seconds timeout
+/**
+ * TMDB API proxy route handler
+ * This route proxies requests to the TMDB API to avoid exposing the API key to the client
+ */
 
-// Mock data for fallback
-const MOCK_RESPONSE = {
-  results: [
-    {
-      id: 1,
-      title: "API Fallback Movie",
-      poster_path: null,
-      backdrop_path: null,
-      vote_average: 8.5,
-      overview: "This is a fallback response when the TMDB API is unavailable.",
-      release_date: "2023-01-01",
-      genre_ids: [28, 12, 878]
-    }
-  ],
-  page: 1,
-  total_pages: 1,
-  total_results: 1
-};
+// Request timeout in milliseconds
+const TIMEOUT = 8000;
 
-// Helper function to fetch with timeout
-async function fetchWithTimeout(url: string, options: RequestInit, timeout: number) {
+/**
+ * Fetch with timeout function
+ * @param url URL to fetch
+ * @param options Fetch options
+ * @param timeout Timeout in milliseconds
+ * @returns Promise with response or error
+ */
+async function fetchWithTimeout(url: string, options: RequestInit = {}, timeout = TIMEOUT) {
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), timeout);
   
@@ -41,77 +33,66 @@ async function fetchWithTimeout(url: string, options: RequestInit, timeout: numb
   }
 }
 
+/**
+ * Get mock data based on the endpoint
+ * @param endpoint TMDB API endpoint
+ * @returns Mock data for the endpoint
+ */
+function getMockData(endpoint: string) {
+  if (endpoint.includes('/genre/movie/list')) {
+    return MOCK_GENRES;
+  } else if (endpoint.includes('/movie/') && !endpoint.includes('/popular') && !endpoint.includes('/top_rated')) {
+    return MOCK_MOVIE_DETAILS;
+  } else {
+    return mockMoviesResponse;
+  }
+}
+
 export async function GET(request: NextRequest) {
-  try {
-    // Validate API key
-    if (!TMDB_API_KEY) {
-      console.warn('TMDB API key is not configured');
-      return NextResponse.json(MOCK_RESPONSE, { status: 200 });
-    }
-
-    // Get endpoint and params from the request
-    const searchParams = request.nextUrl.searchParams;
-    const endpoint = searchParams.get('endpoint') || 'movie/popular';
-    
-    // Create a new URL with the required parameters
-    const url = new URL(`${TMDB_BASE_URL}/${endpoint}`);
-    
-    // Add API key to the URL
-    url.searchParams.append('api_key', TMDB_API_KEY);
-    
-    // Add other search params from the request
-    searchParams.forEach((value, key) => {
-      if (key !== 'endpoint') {
-        url.searchParams.append(key, value);
-      }
-    });
-
-    console.log('Proxy request to:', url.toString());
-    
-    // Make the fetch request to TMDB API with timeout
-    const response = await fetchWithTimeout(
-      url.toString(), 
-      {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        next: { revalidate: 3600 } // Cache for 1 hour
-      },
-      TIMEOUT_MS
+  const { searchParams } = new URL(request.url);
+  const endpoint = searchParams.get('endpoint');
+  
+  // Check if endpoint is provided
+  if (!endpoint) {
+    return NextResponse.json(
+      { error: 'Endpoint parameter is required' },
+      { status: 400 }
     );
+  }
+  
+  // Check if API key is available
+  const apiKey = process.env.NEXT_PUBLIC_TMDB_API_KEY;
+  if (!apiKey) {
+    console.warn('TMDB API key not found. Using mock data.');
+    return NextResponse.json(getMockData(endpoint));
+  }
+  
+  // Construct TMDB API URL
+  const tmdbBaseUrl = 'https://api.themoviedb.org/3';
+  const separator = endpoint.includes('?') ? '&' : '?';
+  const tmdbUrl = `${tmdbBaseUrl}${endpoint}${separator}api_key=${apiKey}`;
+  
+  try {
+    // Fetch data from TMDB API with timeout
+    const response = await fetchWithTimeout(tmdbUrl);
     
-    // Check if response is OK
     if (!response.ok) {
-      // Try to get error details from response
-      let errorMessage;
-      try {
-        const errorData = await response.json();
-        errorMessage = errorData.status_message || `Error: ${response.status}`;
-        console.error('TMDB API error:', errorMessage);
-      } catch (e) {
-        errorMessage = `TMDB API error: ${response.status}`;
-        console.error(errorMessage);
-      }
-      
-      // Return mock data on error but with success status code
-      return NextResponse.json(MOCK_RESPONSE, { status: 200 });
+      console.error(`TMDB API error: ${response.status} - ${response.statusText}`);
+      return NextResponse.json(
+        getMockData(endpoint),
+        { status: 200 }
+      );
     }
     
-    // Get the response data
     const data = await response.json();
-    
-    // Return the response
-    return NextResponse.json(data, {
-      status: 200,
-      headers: {
-        'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=600',
-      }
-    });
+    return NextResponse.json(data);
   } catch (error) {
-    console.error('API route error:', error);
-    // Return mock data on error
-    return NextResponse.json(MOCK_RESPONSE, { status: 200 });
+    console.error('Error fetching data from TMDB API:', error);
+    
+    // Return mock data with 200 status to keep the app functioning
+    return NextResponse.json(
+      getMockData(endpoint),
+      { status: 200 }
+    );
   }
 } 

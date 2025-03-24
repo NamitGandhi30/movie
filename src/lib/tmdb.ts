@@ -16,59 +16,75 @@ const validateApiKey = () => {
 // Promise-based setTimeout for use in retry logic
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-// Fetch with retry mechanism
-async function fetchWithRetry(url: string, options: RequestInit, retries = 3, backoff = 300) {
-  try {
-    return await fetch(url, options);
-  } catch (err) {
-    if (retries <= 1) {
-      console.log('All retries failed, attempting to use proxy API...');
+// Improved fetch with better retry logic and proxy fallback for ECONNRESET errors
+async function fetchWithRetry(url: string, options: RequestInit, retries = 3, delay = 1000): Promise<Response> {
+  for (let attempt = 0; attempt < retries; attempt++) {
+    try {
+      // Add a timeout to prevent long-hanging requests
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
       
-      // Try using the proxy API as a fallback
-      try {
-        // Extract the endpoint and query params from the original URL
-        const originalUrl = new URL(url);
-        const path = originalUrl.pathname.replace('/3/', '');
+      const response = await fetch(url, {
+        ...options,
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+      return response;
+    } catch (error) {
+      console.error(`Fetch attempt ${attempt + 1}/${retries} failed:`, error);
+      
+      const isLastAttempt = attempt === retries - 1;
+      if (isLastAttempt) {
+        console.log('All direct API attempts failed, trying proxy API...');
         
-        // Build the proxy URL - detect if we're in browser or server
-        const isClient = typeof window !== 'undefined';
-        const baseUrl = isClient 
-          ? window.location.origin 
-          : process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+        // As a last resort, try using the proxy API
+        try {
+          // Extract the endpoint and query params from the original URL
+          const originalUrl = new URL(url);
+          const path = originalUrl.pathname.replace('/3/', '');
           
-        const proxyUrl = new URL('/api/tmdb', baseUrl);
-        proxyUrl.searchParams.append('endpoint', path);
-        
-        // Add all original query params except api_key (it's added server-side)
-        originalUrl.searchParams.forEach((value, key) => {
-          if (key !== 'api_key') {
-            proxyUrl.searchParams.append(key, value);
-          }
-        });
-        
-        console.log('Attempting proxy request to:', proxyUrl.toString());
-        
-        // Make the proxy request
-        return await fetch(proxyUrl.toString(), {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          cache: 'no-store' // Don't cache fallback requests
-        });
-      } catch (proxyErr) {
-        console.error('Proxy API request also failed:', proxyErr);
-        throw err; // Throw the original error
+          // Build the proxy URL - detect if we're in browser or server
+          const isClient = typeof window !== 'undefined';
+          const baseUrl = isClient 
+            ? window.location.origin 
+            : process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+            
+          const proxyUrl = new URL('/api/tmdb', baseUrl);
+          proxyUrl.searchParams.append('endpoint', path);
+          
+          // Add all original query params except api_key (it's added server-side)
+          originalUrl.searchParams.forEach((value, key) => {
+            if (key !== 'api_key') {
+              proxyUrl.searchParams.append(key, value);
+            }
+          });
+          
+          console.log('Attempting proxy request to:', proxyUrl.toString());
+          
+          // Make the proxy request
+          return await fetch(proxyUrl.toString(), {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+            }
+          });
+        } catch (proxyErr) {
+          console.error('Proxy API request also failed:', proxyErr);
+          // If proxy also fails, throw the original error
+          throw error;
+        }
       }
+      
+      // Wait before next retry (exponential backoff)
+      const backoffTime = delay * Math.pow(2, attempt);
+      console.log(`Retrying in ${backoffTime}ms...`);
+      await new Promise(resolve => setTimeout(resolve, backoffTime));
     }
-    
-    console.log(`Fetch failed, retrying in ${backoff}ms... (${retries-1} retries left)`);
-    
-    // Use standard setTimeout via Promise
-    await delay(backoff);
-    
-    return fetchWithRetry(url, options, retries - 1, backoff * 2);
   }
+  
+  // This should never be reached due to the throw in the catch block above
+  throw new Error('All fetch attempts failed');
 }
 
 export type Movie = {
@@ -99,16 +115,16 @@ export interface GenresResponse {
   genres: Genre[];
 }
 
-// Mock data for fallback when API fails
-const MOCK_MOVIES: Movie[] = [
+// Example mock data for development
+export const MOCK_MOVIES: Movie[] = [
   {
     id: 1,
-    title: "Sample Movie 1",
-    poster_path: null,
-    backdrop_path: null,
+    title: 'Sample Movie 1',
+    poster_path: '/sample-poster1.jpg',
+    backdrop_path: '/sample-backdrop1.jpg',
+    release_date: '2023-01-01',
     vote_average: 8.5,
-    overview: "This is a sample movie description for when the API is unavailable.",
-    release_date: "2023-01-01",
+    overview: 'This is a sample movie for development purposes.',
     genre_ids: [28, 12, 878]
   },
   {
@@ -123,19 +139,19 @@ const MOCK_MOVIES: Movie[] = [
   }
 ];
 
-const MOCK_MOVIE_DETAILS: MovieDetails = {
+export const MOCK_MOVIE_DETAILS: MovieDetails = {
   id: 1,
-  title: "Sample Movie Details",
-  poster_path: null,
-  backdrop_path: null,
+  title: 'Sample Movie Details',
+  poster_path: '/sample-poster-details.jpg',
+  backdrop_path: '/sample-backdrop-details.jpg',
+  release_date: '2023-01-01',
   vote_average: 8.5,
-  overview: "This is a sample movie details for when the API is unavailable.",
-  release_date: "2023-01-01",
+  overview: 'This is a sample movie details for development purposes.',
   genre_ids: [28, 12, 878],
   genres: [
-    { id: 28, name: "Action" },
-    { id: 12, name: "Adventure" },
-    { id: 878, name: "Science Fiction" }
+    { id: 28, name: 'Action' },
+    { id: 12, name: 'Adventure' },
+    { id: 878, name: 'Science Fiction' }
   ],
   runtime: 120,
   status: "Released",
@@ -143,33 +159,42 @@ const MOCK_MOVIE_DETAILS: MovieDetails = {
   vote_count: 1000
 };
 
-const MOCK_GENRES: Genre[] = [
-  { id: 28, name: "Action" },
-  { id: 12, name: "Adventure" },
-  { id: 16, name: "Animation" },
-  { id: 35, name: "Comedy" },
-  { id: 80, name: "Crime" },
-  { id: 99, name: "Documentary" },
-  { id: 18, name: "Drama" },
-  { id: 10751, name: "Family" },
-  { id: 14, name: "Fantasy" },
-  { id: 36, name: "History" },
-  { id: 27, name: "Horror" },
-  { id: 10402, name: "Music" },
-  { id: 9648, name: "Mystery" },
-  { id: 10749, name: "Romance" },
-  { id: 878, name: "Science Fiction" },
-  { id: 10770, name: "TV Movie" },
-  { id: 53, name: "Thriller" },
-  { id: 10752, name: "War" },
-  { id: 37, name: "Western" }
-];
+export const mockMoviesResponse = {
+  page: 1,
+  results: MOCK_MOVIES,
+  total_pages: 10,
+  total_results: 60
+};
+
+export const MOCK_GENRES = {
+  genres: [
+    { id: 28, name: "Action" },
+    { id: 12, name: "Adventure" },
+    { id: 16, name: "Animation" },
+    { id: 35, name: "Comedy" },
+    { id: 80, name: "Crime" },
+    { id: 99, name: "Documentary" },
+    { id: 18, name: "Drama" },
+    { id: 10751, name: "Family" },
+    { id: 14, name: "Fantasy" },
+    { id: 36, name: "History" },
+    { id: 27, name: "Horror" },
+    { id: 10402, name: "Music" },
+    { id: 9648, name: "Mystery" },
+    { id: 10749, name: "Romance" },
+    { id: 878, name: "Science Fiction" },
+    { id: 10770, name: "TV Movie" },
+    { id: 53, name: "Thriller" },
+    { id: 10752, name: "War" },
+    { id: 37, name: "Western" }
+  ]
+};
 
 export async function getGenres(): Promise<GenresResponse> {
   // Check if API key is available
   if (!process.env.NEXT_PUBLIC_TMDB_API_KEY) {
     console.warn("TMDB API key not found. Using mock data.");
-    return { genres: MOCK_GENRES };
+    return { genres: MOCK_GENRES.genres };
   }
 
   try {
@@ -180,7 +205,7 @@ export async function getGenres(): Promise<GenresResponse> {
 
     if (!response.ok) {
       console.error("Failed to fetch genres from TMDB API:", response.statusText);
-      return { genres: MOCK_GENRES };
+      return { genres: MOCK_GENRES.genres };
     }
 
     const data = await response.json();
@@ -188,7 +213,7 @@ export async function getGenres(): Promise<GenresResponse> {
   } catch (error) {
     console.error("Error fetching genres:", error);
     // Return mock data as fallback
-    return { genres: MOCK_GENRES };
+    return { genres: MOCK_GENRES.genres };
   }
 }
 
@@ -198,14 +223,6 @@ export interface MoviesResponse {
   total_pages: number;
   total_results: number;
 }
-
-// Create mock movies response for fallback
-const mockMoviesResponse: MoviesResponse = {
-  page: 1,
-  results: MOCK_MOVIES,
-  total_pages: 1,
-  total_results: MOCK_MOVIES.length
-};
 
 /**
  * Get movies by genre ID with optional sorting
@@ -231,43 +248,23 @@ export async function getMoviesByGenre(genreId: number, page = 1, sortBy = 'popu
     }
   };
 
-  // Try up to 3 times with increasing backoff
-  for (let attempt = 0; attempt < 3; attempt++) {
-    try {
-      console.log(`Fetching movies for genre ${genreId}, attempt ${attempt + 1}`);
-      const response = await fetch(url, options);
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`TMDB API error: ${response.status} - ${errorText}`);
-        
-        // If we got a server error, wait before retrying
-        if (response.status >= 500) {
-          await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
-          continue;
-        }
-        
-        // For client errors, return mock data
-        return mockMoviesResponse;
-      }
-      
-      const data = await response.json();
-      return data;
-    } catch (error) {
-      console.error(`Error fetching movies by genre (attempt ${attempt + 1}):`, error);
-      
-      // Wait before retrying (exponential backoff)
-      if (attempt < 2) {
-        const backoffTime = 1000 * Math.pow(2, attempt);
-        console.log(`Retrying in ${backoffTime}ms...`);
-        await new Promise(resolve => setTimeout(resolve, backoffTime));
-      }
+  try {
+    console.log(`Fetching movies for genre ${genreId}, page ${page}`);
+    const response = await fetchWithRetry(url, options);
+    
+    if (!response.ok) {
+      console.error(`TMDB API error: ${response.status} - ${response.statusText}`);
+      // Return mock data on error
+      return mockMoviesResponse;
     }
+    
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error(`Error fetching movies by genre:`, error);
+    // Return mock data as fallback
+    return mockMoviesResponse;
   }
-  
-  // If all attempts failed, return mock data
-  console.log("All attempts to fetch genre movies failed, using mock data");
-  return mockMoviesResponse;
 }
 
 export async function getPopularMovies(page = 1) {
@@ -289,8 +286,7 @@ export async function getPopularMovies(page = 1) {
     headers: {
       accept: 'application/json',
       Authorization: `Bearer ${TMDB_API_KEY}`
-    },
-    next: { revalidate: 3600 }
+    }
   };
 
   try {
@@ -298,8 +294,7 @@ export async function getPopularMovies(page = 1) {
     const response = await fetchWithRetry(url, options);
     
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`TMDB API error: ${response.status} - ${errorText}`);
+      console.error(`TMDB API error: ${response.status} - ${response.statusText}`);
       
       // Return mock data on error
       return {
@@ -483,7 +478,7 @@ export async function searchMovies(query: string, page = 1) {
 
 export function getImageUrl(path: string | null, size: string = 'w500') {
   if (!path) {
-    // Return a data URI for a simple gray placeholder since the file may not exist
+    // Return a data URI for a simple gray placeholder
     return "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='500' height='750' viewBox='0 0 500 750'%3E%3Crect width='100%25' height='100%25' fill='%23333333'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='24' fill='%23ffffff'%3ENo Image%3C/text%3E%3C/svg%3E";
   }
   return `${TMDB_IMAGE_BASE_URL}/${size}${path}`;

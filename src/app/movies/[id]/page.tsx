@@ -10,11 +10,10 @@ import { Button } from "@/components/ui/button";
 import { notFound } from "next/navigation";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeftIcon } from "lucide-react";
-
 import { MovieImageWrapper } from "./movie-image-wrapper";
 import { MovieTrailer } from "./movie-trailer";
 import { SimilarMoviesSection } from "./similar-movies-section";
-import { MovieFavoriteButton } from "@/components/movie-favorite-button";
+import { FavoriteButton } from "@/components/favorite-button";
 
 interface MovieDetailsPageProps {
   params: { id: string };
@@ -130,7 +129,7 @@ export default async function MovieDetailsPage({
               <Suspense fallback={<Button disabled>Loading Trailer...</Button>}>
                 <MovieTrailer movieId={movieId} />
               </Suspense>
-              <MovieFavoriteButton movie={movie} />
+              <FavoriteButton movie={movie} />
             </div>
           </div>
         </div>

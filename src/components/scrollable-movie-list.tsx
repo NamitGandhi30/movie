@@ -63,7 +63,7 @@ export function ScrollableMovieList({
   // Keyboard navigation
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     const container = scrollContainerRef.current;
-    if (!container || !container.contains(document.activeElement)) return;
+    if (!container || !container.contains(document.activeElement) || !movies) return;
 
     // Handle arrow keys for navigation within the list
     if (e.key === 'ArrowRight') {
@@ -81,7 +81,7 @@ export function ScrollableMovieList({
         setCurrentFocus(prev => prev - 1);
       }
     }
-  }, [currentFocus, movies.length]);
+  }, [currentFocus, movies]);
 
   // Set up keyboard event listeners
   useEffect(() => {

@@ -627,3 +627,67 @@ export async function getGenreById(id: number): Promise<Genre | null> {
     return null;
   }
 }
+
+export async function getIndianMovies(page = 1) {
+  const hasApiKey = validateApiKey();
+  
+  if (!hasApiKey) {
+    // Return mock data if no API key
+    return {
+      results: MOCK_MOVIES.map(movie => ({
+        ...movie,
+        title: `Indian ${movie.title}`,
+      })),
+      page: 1,
+      total_pages: 1,
+      total_results: MOCK_MOVIES.length
+    };
+  }
+  
+  // Use region=IN to get Indian movies and sort by popularity
+  const url = `${TMDB_BASE_URL}/discover/movie?api_key=${TMDB_API_KEY}&with_original_language=hi|ta|te|ml|kn|bn&region=IN&sort_by=popularity.desc&page=${page}`;
+  const options = {
+    method: 'GET',
+    headers: {
+      accept: 'application/json',
+      Authorization: `Bearer ${TMDB_API_KEY}`
+    },
+    next: { revalidate: 3600 }
+  };
+
+  try {
+    const response = await fetchWithRetry(url, options);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`TMDB API error: ${response.status} - ${errorText}`);
+      
+      // Return mock data on error
+      return {
+        results: MOCK_MOVIES.map(movie => ({
+          ...movie,
+          title: `Indian ${movie.title}`,
+        })),
+        page: 1,
+        total_pages: 1,
+        total_results: MOCK_MOVIES.length
+      };
+    }
+    
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Error fetching Indian movies:', error);
+    
+    // Return mock data on error
+    return {
+      results: MOCK_MOVIES.map(movie => ({
+        ...movie,
+        title: `Indian ${movie.title}`,
+      })),
+      page: 1,
+      total_pages: 1,
+      total_results: MOCK_MOVIES.length
+    };
+  }
+}

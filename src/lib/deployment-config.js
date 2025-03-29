@@ -17,3 +17,11 @@ export const mockUser = shouldSkipAuthInBuild ? {
   name: 'Static User',
   email: 'static@example.com',
 } : null;
+
+// Session configuration
+export const SESSION_CONFIG = {
+  // Duration in milliseconds (7 days)
+  duration: 7 * 24 * 60 * 60 * 1000,
+  // Storage key in localStorage 
+  storageKey: 'session',
+};

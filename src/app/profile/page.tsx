@@ -8,14 +8,26 @@ import { Button } from "@/components/ui/button";
 import { getMovieDetails, getImageUrl } from "@/lib/tmdb";
 import { useToast } from "@/components/ui/use-toast";
 import { FavoriteButton } from "@/components/favorite-button";
-import { LogOutIcon, Loader2Icon } from "lucide-react";
+import { LogOutIcon, Loader2Icon, Edit2Icon, SaveIcon, XIcon } from "lucide-react";
 import type { Movie } from "@/lib/tmdb";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 export default function ProfilePage() {
-  const { user, logout, requireAuth } = useAuth();
+  const { user, logout, requireAuth, updateUserData } = useAuth();
   const { favorites, isLoading: favoritesLoading } = useFavorites();
   const [favoriteMovies, setFavoriteMovies] = useState<Movie[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [formData, setFormData] = useState({
+    name: '',
+    email: ''
+  });
+  const [errors, setErrors] = useState<{
+    name?: string;
+    email?: string;
+  }>({});
   const router = useRouter();
   const { toast } = useToast();
 
@@ -28,6 +40,16 @@ export default function ProfilePage() {
 
     checkAuth();
   }, [requireAuth]);
+
+  // Initialize form data when user data changes
+  useEffect(() => {
+    if (user) {
+      setFormData({
+        name: user.name || '',
+        email: user.email || ''
+      });
+    }
+  }, [user]);
 
   useEffect(() => {
     const fetchFavoriteMovies = async () => {
@@ -64,6 +86,80 @@ export default function ProfilePage() {
     });
   };
 
+  const validateForm = () => {
+    const newErrors: { name?: string; email?: string } = {};
+    
+    if (!formData.name.trim()) {
+      newErrors.name = "Name is required";
+    }
+    
+    if (!formData.email) {
+      newErrors.email = "Email is required";
+    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+      newErrors.email = "Please enter a valid email";
+    }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSaveProfile = async () => {
+    if (!validateForm()) {
+      return;
+    }
+    
+    setIsSaving(true);
+    
+    try {
+      const success = await updateUserData({
+        name: formData.name,
+        email: formData.email
+      });
+      
+      if (success) {
+        setIsEditing(false);
+        toast({
+          title: "Profile updated",
+          description: "Your profile information has been updated successfully",
+        });
+      } else {
+        toast({
+          title: "Update failed",
+          description: "Failed to update your profile information",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error updating profile:", error);
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const cancelEdit = () => {
+    if (user) {
+      setFormData({
+        name: user.name || '',
+        email: user.email || ''
+      });
+    }
+    setErrors({});
+    setIsEditing(false);
+  };
+
   if (isLoading) {
     return (
       <div className="container py-16 flex justify-center items-center min-h-[70vh]">
@@ -97,16 +193,90 @@ export default function ProfilePage() {
         </div>
 
         <div className="mb-10">
-          <h2 className="text-xl font-semibold mb-4">Account Information</h2>
-          <div className="grid gap-4">
-            <div className="grid grid-cols-3 items-center">
-              <span className="text-muted-foreground">Name</span>
-              <span className="col-span-2 font-medium">{user.name}</span>
-            </div>
-            <div className="grid grid-cols-3 items-center">
-              <span className="text-muted-foreground">Email</span>
-              <span className="col-span-2 font-medium">{user.email}</span>
-            </div>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold">Account Information</h2>
+            {!isEditing ? (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => setIsEditing(true)}
+              >
+                <Edit2Icon className="h-4 w-4 mr-2" />
+                Edit Profile
+              </Button>
+            ) : (
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={cancelEdit}
+                >
+                  <XIcon className="h-4 w-4 mr-2" />
+                  Cancel
+                </Button>
+                <Button 
+                  variant="default" 
+                  size="sm" 
+                  onClick={handleSaveProfile}
+                  disabled={isSaving}
+                >
+                  {isSaving ? (
+                    <Loader2Icon className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <SaveIcon className="h-4 w-4 mr-2" />
+                  )}
+                  Save
+                </Button>
+              </div>
+            )}
+          </div>
+          <div className="space-y-4 bg-card rounded-lg p-6 border">
+            {isEditing ? (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="name">Name</Label>
+                  <Input
+                    id="name"
+                    name="name"
+                    value={formData.name}
+                    onChange={handleInputChange}
+                    className={errors.name ? "border-destructive" : ""}
+                  />
+                  {errors.name && (
+                    <p className="text-destructive text-sm">{errors.name}</p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    name="email"
+                    type="email"
+                    value={formData.email}
+                    onChange={handleInputChange}
+                    className={errors.email ? "border-destructive" : ""}
+                  />
+                  {errors.email && (
+                    <p className="text-destructive text-sm">{errors.email}</p>
+                  )}
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="grid grid-cols-3 items-center">
+                  <span className="text-muted-foreground">Name</span>
+                  <span className="col-span-2 font-medium">{user.name}</span>
+                </div>
+                <div className="grid grid-cols-3 items-center">
+                  <span className="text-muted-foreground">Email</span>
+                  <span className="col-span-2 font-medium">{user.email}</span>
+                </div>
+                <div className="grid grid-cols-3 items-center">
+                  <span className="text-muted-foreground">Account ID</span>
+                  <span className="col-span-2 text-sm text-muted-foreground">{user.id}</span>
+                </div>
+              </>
+            )}
           </div>
         </div>
 

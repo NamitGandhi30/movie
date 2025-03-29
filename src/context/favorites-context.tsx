@@ -19,39 +19,31 @@ const FavoritesContext = createContext<FavoritesContextType | undefined>(undefin
 export function FavoritesProvider({ children }: { children: ReactNode }) {
   const [favorites, setFavorites] = useState<number[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const { user, requireAuth } = useAuth();
+  const { user, requireAuth, updateFavorites } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
 
-  // Load favorites from localStorage when user changes
+  // Load favorites from user object when user changes
   useEffect(() => {
     const loadFavorites = () => {
-      if (user) {
-        const storedFavorites = localStorage.getItem(`favorites-${user.id}`);
-        if (storedFavorites) {
-          setFavorites(JSON.parse(storedFavorites));
-        } else {
-          setFavorites([]);
-        }
+      if (user && user.favorites) {
+        setFavorites(user.favorites);
       } else {
         setFavorites([]);
       }
       setIsLoading(false);
     };
 
-    if (typeof window !== "undefined") {
-      loadFavorites();
-    } else {
-      setIsLoading(false);
-    }
+    loadFavorites();
   }, [user]);
 
-  // Save favorites to localStorage when they change
-  useEffect(() => {
-    if (user && !isLoading) {
-      localStorage.setItem(`favorites-${user.id}`, JSON.stringify(favorites));
+  // Sync favorites with the auth context when they change locally
+  const syncFavoritesToUser = async (newFavorites: number[]) => {
+    if (user) {
+      // Update favorites in user context
+      await updateFavorites(newFavorites);
     }
-  }, [favorites, user, isLoading]);
+  };
 
   const addFavorite = async (movie: Movie) => {
     // Check if user is authenticated
@@ -67,7 +59,12 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
     }
 
     if (!isFavorite(movie.id)) {
-      setFavorites((prev) => [...prev, movie.id]);
+      const newFavorites = [...favorites, movie.id];
+      setFavorites(newFavorites);
+      
+      // Sync with user context
+      await syncFavoritesToUser(newFavorites);
+      
       toast({
         title: "Added to Favorites",
         description: `${movie.title} has been added to your favorites`,
@@ -77,7 +74,12 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
   };
 
   const removeFavorite = (movieId: number) => {
-    setFavorites((prev) => prev.filter((id) => id !== movieId));
+    const newFavorites = favorites.filter((id) => id !== movieId);
+    setFavorites(newFavorites);
+    
+    // Sync with user context
+    syncFavoritesToUser(newFavorites);
+    
     toast({
       title: "Removed from Favorites",
       description: "Movie has been removed from your favorites",

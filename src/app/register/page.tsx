@@ -8,6 +8,8 @@ import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertCircle } from "lucide-react";
 
 export default function RegisterPage() {
   const [name, setName] = useState("");
@@ -15,6 +17,7 @@ export default function RegisterPage() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [registerError, setRegisterError] = useState<string | null>(null);
   const [errors, setErrors] = useState<{ 
     name?: string; 
     email?: string; 
@@ -70,6 +73,9 @@ export default function RegisterPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Clear previous errors
+    setRegisterError(null);
+    
     if (!validateForm()) {
       return;
     }
@@ -86,13 +92,19 @@ export default function RegisterPage() {
         });
         router.push(redirectPath);
       } else {
-        toast({
-          title: "Registration failed",
-          description: "Please check your information and try again",
-          variant: "destructive",
-        });
+        // Check if the email already exists
+        const registeredUsers = localStorage.getItem('registered_users');
+        const users = registeredUsers ? JSON.parse(registeredUsers) : [];
+        const emailExists = users.some((u: any) => u.email.toLowerCase() === email.toLowerCase());
+        
+        if (emailExists) {
+          setRegisterError("This email is already registered. Please use a different email or log in.");
+        } else {
+          setRegisterError("Registration failed. Please try again later.");
+        }
       }
     } catch (error) {
+      setRegisterError("An unexpected error occurred. Please try again later.");
       toast({
         title: "Registration error",
         description: "An unexpected error occurred",
@@ -103,10 +115,21 @@ export default function RegisterPage() {
     }
   };
 
+  const clearErrorOnInput = () => {
+    setRegisterError(null);
+  };
+
   return (
     <div className="container mx-auto flex min-h-[80vh] max-w-md flex-col justify-center p-6">
       <div className="bg-card rounded-xl p-8 shadow-lg border">
         <h1 className="text-3xl font-bold mb-6 text-center">Create Account</h1>
+        
+        {registerError && (
+          <Alert variant="destructive" className="mb-6">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{registerError}</AlertDescription>
+          </Alert>
+        )}
         
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="space-y-2">
@@ -116,7 +139,10 @@ export default function RegisterPage() {
               type="text"
               placeholder="John Doe"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => {
+                setName(e.target.value);
+                clearErrorOnInput();
+              }}
               disabled={isLoading}
               className={errors.name ? "border-destructive" : ""}
             />
@@ -132,7 +158,10 @@ export default function RegisterPage() {
               type="email"
               placeholder="you@example.com"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                clearErrorOnInput();
+              }}
               disabled={isLoading}
               className={errors.email ? "border-destructive" : ""}
             />
@@ -148,7 +177,10 @@ export default function RegisterPage() {
               type="password"
               placeholder="••••••••"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                clearErrorOnInput();
+              }}
               disabled={isLoading}
               className={errors.password ? "border-destructive" : ""}
             />
@@ -164,7 +196,10 @@ export default function RegisterPage() {
               type="password"
               placeholder="••••••••"
               value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
+              onChange={(e) => {
+                setConfirmPassword(e.target.value);
+                clearErrorOnInput();
+              }}
               disabled={isLoading}
               className={errors.confirmPassword ? "border-destructive" : ""}
             />

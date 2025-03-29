@@ -8,23 +8,24 @@ type User = {
   id: string;
   name: string;
   email: string;
+  password: string; // Add password field for validation
   favorites?: number[]; // Add favorites to user data
 };
 
 type Session = {
-  user: User;
+  user: Omit<User, 'password'>; // Exclude password from session
   token: string;
   expiresAt: number; // Timestamp when session expires
 };
 
 interface AuthContextType {
-  user: User | null;
+  user: Omit<User, 'password'> | null;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<boolean>;
   register: (name: string, email: string, password: string) => Promise<boolean>;
   logout: () => void;
   requireAuth: (redirectTo?: string) => Promise<boolean>;
-  updateUserData: (userData: Partial<User>) => Promise<boolean>;
+  updateUserData: (userData: Partial<Omit<User, 'password'>>) => Promise<boolean>;
   updateFavorites: (favorites: number[]) => Promise<boolean>; // Add function to update favorites
 }
 
@@ -70,6 +71,37 @@ const getStoredSession = (): Session | null => {
   }
 };
 
+// Helper function to manage registered users in localStorage
+const REGISTERED_USERS_KEY = 'registered_users';
+
+const getRegisteredUsers = (): User[] => {
+  try {
+    const storedUsers = localStorage.getItem(REGISTERED_USERS_KEY);
+    if (storedUsers) {
+      return JSON.parse(storedUsers);
+    }
+  } catch (error) {
+    console.error("Error loading registered users:", error);
+  }
+  return [];
+};
+
+const saveRegisteredUser = (user: User) => {
+  const users = getRegisteredUsers();
+  // Check if user already exists
+  const existingUserIndex = users.findIndex(u => u.email.toLowerCase() === user.email.toLowerCase());
+  
+  if (existingUserIndex !== -1) {
+    // Update user if exists
+    users[existingUserIndex] = user;
+  } else {
+    // Add new user
+    users.push(user);
+  }
+  
+  localStorage.setItem(REGISTERED_USERS_KEY, JSON.stringify(users));
+};
+
 // Helper function to retrieve stored favorites for a user ID
 const getStoredFavorites = (userId: string): number[] => {
   try {
@@ -84,7 +116,7 @@ const getStoredFavorites = (userId: string): number[] => {
 };
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<Omit<User, 'password'> | null>(null);
   const [isLoading, setIsLoading] = useState(!shouldSkipAuthInBuild);
   const router = useRouter();
 
@@ -144,30 +176,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Simulate API delay
       await new Promise(resolve => setTimeout(resolve, 500));
       
-      // Create a user ID based on email for consistency between logins
-      const userId = `user-${email.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase()}`;
+      // Check if the user is registered
+      const registeredUsers = getRegisteredUsers();
+      const user = registeredUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
+      
+      if (!user) {
+        // User not found
+        return false;
+      }
+      
+      // Validate password
+      if (user.password !== password) {
+        // Invalid password
+        return false;
+      }
       
       // Load any previously stored favorites for this user
-      const favorites = getStoredFavorites(userId);
+      const favorites = getStoredFavorites(user.id);
       
-      // Create a mock user (in a real app, this would come from your API)
-      const newUser: User = {
-        id: userId,
-        name: email.split('@')[0],
-        email,
-        favorites
+      // Create session with user data (exclude password)
+      const { password: _, ...userWithoutPassword } = user;
+      const sessionUser = {
+        ...userWithoutPassword,
+        favorites: favorites || user.favorites || []
       };
       
       // Create a session with expiration
       const session: Session = {
-        user: newUser,
+        user: sessionUser,
         token: 'mock-token-' + Math.random().toString(36).substring(2, 15),
         expiresAt: Date.now() + SESSION_CONFIG.duration
       };
       
       // Store the session in localStorage
       storeSession(session);
-      setUser(newUser);
+      setUser(sessionUser);
       
       return true;
     } catch (error) {
@@ -189,6 +232,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Simulate API delay
       await new Promise(resolve => setTimeout(resolve, 500));
       
+      // Check if email is already registered
+      const registeredUsers = getRegisteredUsers();
+      if (registeredUsers.some(u => u.email.toLowerCase() === email.toLowerCase())) {
+        // Email already exists
+        return false;
+      }
+      
       // Create a user ID based on email for consistency
       const userId = `user-${email.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase()}`;
       
@@ -197,19 +247,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         id: userId,
         name,
         email,
+        password,
         favorites: []
       };
       
+      // Save to registered users
+      saveRegisteredUser(newUser);
+      
+      // Create session with user data (exclude password)
+      const { password: _, ...userWithoutPassword } = newUser;
+      
       // Create a session with expiration
       const session: Session = {
-        user: newUser,
+        user: userWithoutPassword,
         token: 'mock-token-' + Math.random().toString(36).substring(2, 15),
         expiresAt: Date.now() + SESSION_CONFIG.duration
       };
       
       // Store the session in localStorage
       storeSession(session);
-      setUser(newUser);
+      setUser(userWithoutPassword);
       
       return true;
     } catch (error) {
@@ -220,7 +277,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
   
-  const updateUserData = async (userData: Partial<User>): Promise<boolean> => {
+  const updateUserData = async (userData: Partial<Omit<User, 'password'>>): Promise<boolean> => {
     try {
       const currentSession = getStoredSession();
       if (!currentSession || !user) return false;
@@ -234,6 +291,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user: updatedUser,
         expiresAt: Date.now() + SESSION_CONFIG.duration // Refresh expiration
       };
+      
+      // Get registered user to update
+      const registeredUsers = getRegisteredUsers();
+      const registeredUser = registeredUsers.find(u => u.id === user.id);
+      
+      if (registeredUser) {
+        // Update user data while preserving password
+        const updatedRegisteredUser = {
+          ...registeredUser,
+          ...userData
+        };
+        
+        // Save updated user
+        saveRegisteredUser(updatedRegisteredUser);
+      }
       
       // Save updated session
       storeSession(updatedSession);
@@ -273,6 +345,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       // Also save to favorites-specific storage for backward compatibility
       localStorage.setItem(`favorites-${user.id}`, JSON.stringify(favorites));
+      
+      // Update registered user's favorites
+      const registeredUsers = getRegisteredUsers();
+      const registeredUserIndex = registeredUsers.findIndex(u => u.id === user.id);
+      
+      if (registeredUserIndex !== -1) {
+        registeredUsers[registeredUserIndex].favorites = favorites;
+        localStorage.setItem(REGISTERED_USERS_KEY, JSON.stringify(registeredUsers));
+      }
       
       // Update local state
       setUser(updatedUser);

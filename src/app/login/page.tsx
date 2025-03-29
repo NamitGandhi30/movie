@@ -8,11 +8,14 @@ import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertCircle } from "lucide-react";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [loginError, setLoginError] = useState<string | null>(null);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
   
   const { login, user } = useAuth();
@@ -50,6 +53,9 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Clear previous errors
+    setLoginError(null);
+    
     if (!validateForm()) {
       return;
     }
@@ -67,13 +73,19 @@ export default function LoginPage() {
         // Redirect back to the page they were trying to access
         router.push(redirectPath);
       } else {
-        toast({
-          title: "Login failed",
-          description: "Please check your credentials and try again",
-          variant: "destructive",
-        });
+        // Get registered users from localStorage to check if email exists
+        const registeredUsers = localStorage.getItem('registered_users');
+        const users = registeredUsers ? JSON.parse(registeredUsers) : [];
+        const userExists = users.some((u: any) => u.email.toLowerCase() === email.toLowerCase());
+        
+        if (userExists) {
+          setLoginError("Invalid password. Please try again.");
+        } else {
+          setLoginError("This email is not registered. Please sign up first.");
+        }
       }
     } catch (error) {
+      setLoginError("An unexpected error occurred. Please try again later.");
       toast({
         title: "Login error",
         description: "An unexpected error occurred",
@@ -89,6 +101,13 @@ export default function LoginPage() {
       <div className="bg-card rounded-xl p-8 shadow-lg border">
         <h1 className="text-3xl font-bold mb-6 text-center">Log In</h1>
         
+        {loginError && (
+          <Alert variant="destructive" className="mb-6">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{loginError}</AlertDescription>
+          </Alert>
+        )}
+        
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
@@ -97,7 +116,10 @@ export default function LoginPage() {
               type="email"
               placeholder="you@example.com"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                setLoginError(null); // Clear error when user types
+              }}
               disabled={isLoading}
               className={errors.email ? "border-destructive" : ""}
             />
@@ -118,7 +140,10 @@ export default function LoginPage() {
               type="password"
               placeholder="••••••••"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                setLoginError(null); // Clear error when user types
+              }}
               disabled={isLoading}
               className={errors.password ? "border-destructive" : ""}
             />
